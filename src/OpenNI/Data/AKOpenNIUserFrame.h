@@ -35,7 +35,6 @@ typedef struct _AKOpenNIUserFrame
 {
     AKUserFrame* userFrame;
 	AKOpenNIUser* openNIUsers;
-
 } AKOpenNIUserFrame;
 #endif _AKOpenNIUserFrame_
 

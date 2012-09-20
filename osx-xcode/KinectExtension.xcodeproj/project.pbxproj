@@ -37,6 +37,7 @@
 		6C7023CE15B5E851002000A7 /* AKMSSDKUserFrameGenerator.h in Headers */ = {isa = PBXBuildFile; fileRef = 6C7023CC15B5E851002000A7 /* AKMSSDKUserFrameGenerator.h */; };
 		6C7023D115B5E85C002000A7 /* AKOpenNIUserFrameGenerator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6C7023CF15B5E85C002000A7 /* AKOpenNIUserFrameGenerator.cpp */; };
 		6C7023D215B5E85C002000A7 /* AKOpenNIUserFrameGenerator.h in Headers */ = {isa = PBXBuildFile; fileRef = 6C7023D015B5E85C002000A7 /* AKOpenNIUserFrameGenerator.h */; };
+		6C711536160B0AC800B74E94 /* opencv.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 6C711535160B0AC800B74E94 /* opencv.a */; };
 		6CAA0B9A15B2E7330085D9CB /* AKMSSDKDepthParser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6CAA0B8D15B2E7330085D9CB /* AKMSSDKDepthParser.cpp */; };
 		6CAA0B9B15B2E7330085D9CB /* AKMSSDKDepthParser.h in Headers */ = {isa = PBXBuildFile; fileRef = 6CAA0B8E15B2E7330085D9CB /* AKMSSDKDepthParser.h */; };
 		6CAA0B9C15B2E7330085D9CB /* AKMSSDKRGBParser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6CAA0B8F15B2E7330085D9CB /* AKMSSDKRGBParser.cpp */; };
@@ -104,6 +105,7 @@
 		6C7023CC15B5E851002000A7 /* AKMSSDKUserFrameGenerator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AKMSSDKUserFrameGenerator.h; sourceTree = "<group>"; };
 		6C7023CF15B5E85C002000A7 /* AKOpenNIUserFrameGenerator.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AKOpenNIUserFrameGenerator.cpp; sourceTree = "<group>"; };
 		6C7023D015B5E85C002000A7 /* AKOpenNIUserFrameGenerator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AKOpenNIUserFrameGenerator.h; sourceTree = "<group>"; };
+		6C711535160B0AC800B74E94 /* opencv.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = opencv.a; path = "../external-libraries/opencv/lib/opencv.a"; sourceTree = "<group>"; };
 		6CAA0B8D15B2E7330085D9CB /* AKMSSDKDepthParser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AKMSSDKDepthParser.cpp; sourceTree = "<group>"; };
 		6CAA0B8E15B2E7330085D9CB /* AKMSSDKDepthParser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AKMSSDKDepthParser.h; sourceTree = "<group>"; };
 		6CAA0B8F15B2E7330085D9CB /* AKMSSDKRGBParser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AKMSSDKRGBParser.cpp; sourceTree = "<group>"; };
@@ -155,6 +157,7 @@
 				6CD9765714C85BF80061A00B /* libOpenNI.dylib in Frameworks */,
 				6C039C44153447250060F00E /* Adobe AIR.framework in Frameworks */,
 				6C68D786153583D900D2BF8E /* libboost_thread.a in Frameworks */,
+				6C711536160B0AC800B74E94 /* opencv.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -328,6 +331,7 @@
 		6CD9765514C85BB70061A00B /* Libraries */ = {
 			isa = PBXGroup;
 			children = (
+				6C711535160B0AC800B74E94 /* opencv.a */,
 				6C68D785153583D900D2BF8E /* libboost_thread.a */,
 				6CD9765614C85BF80061A00B /* libOpenNI.dylib */,
 			);
@@ -559,6 +563,7 @@
 				HEADER_SEARCH_PATHS = (
 					"\"$(SRCROOT)/../external-libraries/boost\"",
 					"/usr/include/ni/**",
+					"\"$(SRCROOT)/../external-libraries/opencv/include\"/**",
 				);
 				INFOPLIST_FILE = "KinectExtension/KinectExtension-Info.plist";
 				INFOPLIST_PREPROCESSOR_DEFINITIONS = "";
@@ -567,6 +572,7 @@
 					"$(inherited)",
 					"\"$(SRCROOT)\"",
 					"\"$(SRCROOT)/../external-libraries/boost/lib\"",
+					"\"$(SRCROOT)/../external-libraries/opencv/lib\"",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -598,6 +604,7 @@
 				HEADER_SEARCH_PATHS = (
 					"\"$(SRCROOT)/../external-libraries/boost\"",
 					"/usr/include/ni/**",
+					"\"$(SRCROOT)/../external-libraries/opencv/include\"/**",
 				);
 				INFOPLIST_FILE = "KinectExtension/KinectExtension-Info.plist";
 				INFOPLIST_PREPROCESSOR_DEFINITIONS = "";
@@ -606,6 +613,7 @@
 					"$(inherited)",
 					"\"$(SRCROOT)\"",
 					"\"$(SRCROOT)/../external-libraries/boost/lib\"",
+					"\"$(SRCROOT)/../external-libraries/opencv/lib\"",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				PRODUCT_NAME = "$(TARGET_NAME)";

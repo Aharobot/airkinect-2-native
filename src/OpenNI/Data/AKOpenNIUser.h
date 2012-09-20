@@ -37,6 +37,12 @@ typedef struct _AKOpenNIUser
 	AKUser* user;
 	AKOpenNISkeletonJoint* openNISkeletonJoints;
 	AKOpenNISkeletonBone* openNISkeletonBones;
+    
+    AKSkeletonJoint* leftFingers;
+    int numLeftFingers;
+    
+    AKSkeletonJoint* rightFingers;
+    int numRightFingers;
 
 } AKOpenNIUser;
 #endif _AKOpenNIUser_

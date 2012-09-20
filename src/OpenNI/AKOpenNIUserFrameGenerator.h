@@ -23,6 +23,9 @@
 #include "Data/AKOpenNIUserFrame.h"
 
 #include <XnCppWrapper.h>
+#include <opencv/cv.h>
+#include <opencv/highgui.h>
+using namespace cv;
 
 class AKOpenNIUserFrameGenerator : public AKUserFrameGenerator
 {
@@ -63,6 +66,13 @@ private:
 	void calculatePosition(AKPosition &akPosition, XnPoint3D xnPosition);
 
 	void setBoneProperties(AKOpenNISkeletonBone &openNISkeletonBone, AKOpenNISkeletonJoint &jointWhichContainsOrientation, double zDegreesCorrection, int startJointNameIndex, int endJointNameIndex, int parentBoneNameIndex);
+    
+    float getJointImgCoordinates(const xn::SkeletonCapability &skeletonCapability, const XnUserID userId, const XnSkeletonJoint skeletonJoint, float *v);
+    bool getHandContour(const Mat &depthMat, const float *v, vector<Point> &handContour);
+    void detectFingerTips(const vector<Point> &handContour, vector<Point> &fingerTips);
+    double convexity(const vector<Point> &contour);
+    
+    void calculateFingerPosition(AKPosition &akPosition, double depthX, double depthY);
 
 };
 

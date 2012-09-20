@@ -13,11 +13,16 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  */
+
 #include "AKOpenNIUserFrameGenerator.h"
 
 #ifdef AIRKINECT_TARGET_OPENNI
 
 #include <math.h>
+
+const Size frameSize(640, 480);
+Mat depthMat(frameSize, CV_16UC1);
+Mat depthMat8(frameSize, CV_8UC1);
 
 AKOpenNIUserFrameGenerator::AKOpenNIUserFrameGenerator()
 {
@@ -123,6 +128,12 @@ void AKOpenNIUserFrameGenerator::allocateUserFrame()
 		{
 			_openNIUserFrame->openNIUsers[i].openNISkeletonBones[j].skeletonBone = &_userFrame->users[i].skeletonBones[j];
 		}
+        
+        _openNIUserFrame->openNIUsers[i].leftFingers = new AKSkeletonJoint[5];
+        _openNIUserFrame->openNIUsers[i].numLeftFingers = 0;
+        
+        _openNIUserFrame->openNIUsers[i].rightFingers = new AKSkeletonJoint[5];
+        _openNIUserFrame->openNIUsers[i].numRightFingers = 0;
 	}
 }
 
@@ -140,6 +151,13 @@ void AKOpenNIUserFrameGenerator::deallocateUserFrame()
 
 				delete [] _openNIUserFrame->openNIUsers[i].openNISkeletonBones;
 				_openNIUserFrame->openNIUsers[i].openNISkeletonBones = 0;
+                
+                delete [] _openNIUserFrame->openNIUsers[i].leftFingers;
+                _openNIUserFrame->openNIUsers[i].numLeftFingers = 0;
+                
+                delete [] _openNIUserFrame->openNIUsers[i].rightFingers;
+                _openNIUserFrame->openNIUsers[i].numRightFingers = 0;
+                
 			}
 			delete [] _openNIUserFrame->openNIUsers;
 			_openNIUserFrame->openNIUsers = 0;
@@ -160,7 +178,19 @@ void AKOpenNIUserFrameGenerator::setUserGenerator(xn::UserGenerator* userGenerat
 
 void AKOpenNIUserFrameGenerator::generateUserFrame()
 {
-	XnUserID *aUsers = new XnUserID[_maxSkeletons];
+    const float minHandExtension = 0.2f; // in meters
+	const double grabConvexity = 0.8;
+    xn::SkeletonCapability skelCap = _userGenerator->GetSkeletonCap();
+    
+    Mat mat(frameSize, CV_16UC1, (unsigned char*) _depthGenerator->GetDepthMap());
+    mat.copyTo(depthMat);
+    depthMat.convertTo(depthMat8, CV_8UC1, 255.0f / 3000.0f);
+    
+    float rh[3]; // right hand coordinates (x[px], y[px], z[meters])
+    float lh[3]; // left hand coordinates
+    float t[3]; // torso coordinates
+    
+    XnUserID *aUsers = new XnUserID[_maxSkeletons];
 	XnUInt16 nUsers = _maxSkeletons;
 	XnUInt16 trackedUsers = _userGenerator->GetNumberOfUsers();
 	XnPoint3D position;
@@ -189,6 +219,68 @@ void AKOpenNIUserFrameGenerator::generateUserFrame()
 			{
 				addJointElements(_openNIUserFrame->openNIUsers[i], aUsers[i]);
 				addBoneElements(_openNIUserFrame->openNIUsers[i], aUsers[i]);
+                
+                // torso
+                try {
+                    if ( getJointImgCoordinates(skelCap, aUsers[i], XN_SKEL_TORSO, t) == 1 ) {
+                        unsigned char shade = 255 - (unsigned char)(t[2] *  128.0f);
+                        
+                        // right hand
+                        if ( 
+                            (getJointImgCoordinates(skelCap, aUsers[i], XN_SKEL_LEFT_HAND, rh) == 1) /* confident detection */ && 
+                            (rh[2] < t[2] - minHandExtension) /* user extends hand towards screen */ &&
+                            (rh[1] < t[1]) /* user raises his hand */
+                            ) {
+                            
+                            unsigned char shade = 255 - (unsigned char)(rh[2] *  128.0f);
+                            Scalar color(0, 0, shade);
+                            
+                            vector<Point> handContour;
+                            getHandContour(depthMat, rh, handContour);
+                            bool grasp = convexity(handContour) > grabConvexity;
+                            
+                            vector<Point> fingerTips;
+                            detectFingerTips(handContour, fingerTips);
+                            
+                            _openNIUserFrame->openNIUsers[i].numRightFingers = fingerTips.size();
+                            if(_openNIUserFrame->openNIUsers[i].numRightFingers > 5) _openNIUserFrame->openNIUsers[i].numRightFingers = 5;
+                            
+                            for(int j = 0; j < _openNIUserFrame->openNIUsers[i].numRightFingers; j++)
+                            {
+                                calculateFingerPosition(_openNIUserFrame->openNIUsers[i].rightFingers[j].position, fingerTips[j].x, fingerTips[j].y);
+                            }
+                        }
+                        
+                        // left hand
+                        if ( 
+                            (getJointImgCoordinates(skelCap, aUsers[i], XN_SKEL_RIGHT_HAND, lh) == 1) &&
+                            (lh[2] < t[2] - minHandExtension) &&
+                            (lh[1] < t[1]) /* user raises his hand */
+                            ) {
+                            unsigned char shade = 255 - (unsigned char)(lh[2] *  128.0f);
+                            Scalar color(0, shade, 0);
+                            
+                            vector<Point> handContour;
+                            getHandContour(depthMat, lh, handContour);
+                            bool grasp = convexity(handContour) > grabConvexity;
+                            
+                            vector<Point> fingerTips;
+                            detectFingerTips(handContour, fingerTips);
+                            
+                            _openNIUserFrame->openNIUsers[i].numLeftFingers = fingerTips.size();
+                            if(_openNIUserFrame->openNIUsers[i].numLeftFingers > 5) _openNIUserFrame->openNIUsers[i].numLeftFingers = 5;
+                            
+                            for(int j = 0; j < _openNIUserFrame->openNIUsers[i].numLeftFingers; j++)
+                            {
+                                calculateFingerPosition(_openNIUserFrame->openNIUsers[i].leftFingers[j].position, fingerTips[j].x, fingerTips[j].y);
+                            }
+                        }
+                        
+                    }
+                } catch (cv::Exception e) {
+                    _openNIUserFrame->openNIUsers[i].numRightFingers = 0;
+                    _openNIUserFrame->openNIUsers[i].numLeftFingers = 0;
+                }
 			}
 		}
 		else
@@ -405,6 +497,35 @@ FREObject AKOpenNIUserFrameGenerator::getFREObject()
 
 			FRESetObjectProperty(freUser, (const uint8_t*) "skeletonBoneNameIndices", freGetSkeletonBoneNameIndices(), NULL);
 			FRESetObjectProperty(freUser, (const uint8_t*) "skeletonBoneNames", freGetSkeletonBoneNames(), NULL);
+            
+            FREObject rightFingers;
+            FRENewObject( (const uint8_t*) "Vector.<com.as3nui.nativeExtensions.air.kinect.data.SkeletonJoint>", 0, NULL, &rightFingers, NULL);
+            for(int j = 0; j < user->numRightFingers; j++)
+            {
+                AKSkeletonJoint* skeletonJoint = &user->rightFingers[j];
+                
+				FREObject freFinger;
+				FRENewObject( (const uint8_t*) _asJointClass, 0, NULL, &freFinger, NULL);
+				FRESetObjectProperty(freFinger, (const uint8_t*) "position", skeletonJoint->position.asFREObject(), NULL);
+                
+                FRESetArrayElementAt(rightFingers, j, freFinger);
+            }            
+			FRESetObjectProperty(freUser, (const uint8_t*) "rightFingers", rightFingers, NULL);
+            
+            FREObject leftFingers;
+            FRENewObject( (const uint8_t*) "Vector.<com.as3nui.nativeExtensions.air.kinect.data.SkeletonJoint>", 0, NULL, &leftFingers, NULL);
+            for(int j = 0; j < user->numLeftFingers; j++)
+            {
+                AKSkeletonJoint* skeletonJoint = &user->leftFingers[j];
+                
+				FREObject freFinger;
+				FRENewObject( (const uint8_t*) _asJointClass, 0, NULL, &freFinger, NULL);
+				FRESetObjectProperty(freFinger, (const uint8_t*) "position", skeletonJoint->position.asFREObject(), NULL);
+                
+                FRESetArrayElementAt(leftFingers, j, freFinger);
+            }
+            FRESetObjectProperty(freUser, (const uint8_t*) "leftFingers", leftFingers, NULL);
+            
 
 			FRESetArrayElementAt(freUsers, trackedSkeletons, freUser);
 			trackedSkeletons++;
@@ -414,6 +535,127 @@ FREObject AKOpenNIUserFrameGenerator::getFREObject()
 	FRESetObjectProperty(freUserFrame, (const uint8_t*) "users", freUsers, NULL);
 
 	return freUserFrame;
+}
+
+float AKOpenNIUserFrameGenerator::getJointImgCoordinates(const xn::SkeletonCapability &skeletonCapability, const XnUserID userId, const XnSkeletonJoint skeletonJoint, float *v) {
+	XnVector3D projective;
+	XnSkeletonJointPosition skeletonJointPosition;
+	skeletonCapability.GetSkeletonJointPosition(userId, skeletonJoint, skeletonJointPosition);
+	
+	_depthGenerator->ConvertRealWorldToProjective(1, &skeletonJointPosition.position, &projective);
+    
+	v[0] = projective.X;
+	v[1] = projective.Y;
+	v[2] = projective.Z / 1000.0f;
+    
+	return skeletonJointPosition.fConfidence;
+}
+
+bool AKOpenNIUserFrameGenerator::getHandContour(const Mat &depthMat, const float *v, vector<Point> &handContour) {
+	const int maxHandRadius = 128; // in px
+	const short handDepthRange = 200; // in mm
+	const double epsilon = 17.5; // approximation accuracy (maximum distance between the original hand contour and its approximation)
+    
+	unsigned short depth = (unsigned short) (v[2] * 1000.0f); // hand depth
+	unsigned short near = depth - 100; // near clipping plane
+	unsigned short far = depth + 100; // far clipping plane
+    
+	static Mat mask(frameSize, CV_8UC1);
+	mask.setTo(0);
+    
+	// extract hand region	
+	circle(mask, Point(v[0], v[1]), maxHandRadius, 255, CV_FILLED);
+	mask = mask & depthMat > near & depthMat < far;
+    
+	// assume largest contour in hand region to be the hand contour
+	vector<vector<Point> > contours;
+	findContours(mask, contours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
+	int n = contours.size();
+	int maxI = -1;
+	int maxSize = -1;
+	for (int i=0; i<n; i++) {
+		int size  = contours[i].size();
+		if (size > maxSize) {
+			maxSize = size;
+			maxI = i;
+		}
+	}
+    
+	bool handContourFound = (maxI >= 0);
+    
+	if (handContourFound) {
+		approxPolyDP( Mat(contours[maxI]), handContour, epsilon, true );
+	}
+    
+	return maxI >= 0;
+}
+
+void AKOpenNIUserFrameGenerator::detectFingerTips(const vector<Point> &handContour, vector<Point> &fingerTips) {
+	Mat handContourMat(handContour);
+	double area = cv::contourArea(handContourMat);
+    
+	vector<int> hull;
+	cv::convexHull(handContourMat, hull);
+    
+	// find upper and lower bounds of the hand and define cutoff threshold (don't consider lower vertices as fingers)
+	int upper = 640, lower = 0;
+	for (int j=0; j<hull.size(); j++) {
+		int idx = hull[j]; // corner index
+		if (handContour[idx].y < upper) upper = handContour[idx].y;
+		if (handContour[idx].y > lower) lower = handContour[idx].y;
+	}
+	float cutoff = lower - (lower - upper) * 0.1f;
+    
+	// find interior angles of hull corners
+	for (int j=0; j<hull.size(); j++) {
+		int idx = hull[j]; // corner index
+		int pdx = idx == 0 ? handContour.size() - 1 : idx - 1; //  predecessor of idx
+		int sdx = idx == handContour.size() - 1 ? 0 : idx + 1; // successor of idx
+        
+		Point v1 = handContour[sdx] - handContour[idx];
+		Point v2 = handContour[pdx] - handContour[idx];
+        
+		double angle = acos( (v1.x*v2.x + v1.y*v2.y) / (norm(v1) * norm(v2)) );
+        
+		// low interior angle + within upper 90% of region -> we got a finger
+		if (angle < 1 && handContour[idx].y < cutoff) {
+			int u = handContour[idx].x;
+			int v = handContour[idx].y;
+            
+			fingerTips.push_back(Point2i(u,v));
+		}
+	}
+}
+
+double AKOpenNIUserFrameGenerator::convexity(const vector<Point> &contour) {
+	Mat contourMat(contour);
+    
+	vector<int> hull;
+	convexHull(contourMat, hull);
+    
+	int n = hull.size();
+	vector<Point> hullContour;
+    
+	for (int i=0; i<n; i++) {
+		hullContour.push_back(contour[hull[i]]);
+	}
+    
+	Mat hullContourMat(hullContour);
+    
+	return (contourArea(contourMat) / contourArea(hullContourMat));
+}
+
+void AKOpenNIUserFrameGenerator::calculateFingerPosition(AKPosition &akPosition, double depthX, double depthY) {
+    akPosition.rgbRelative.x = akPosition.depthRelative.x = depthX / (double) _depthSourceWidth;
+    akPosition.rgbRelative.y = akPosition.depthRelative.y = depthY / (double) _depthSourceHeight;
+    
+    if(_rgbTargetMirrored) akPosition.rgbRelative.x = 1 - akPosition.rgbRelative.x;
+    if(_depthTargetMirrored) akPosition.depthRelative.x = 1 - akPosition.depthRelative.x;
+    
+    akPosition.rgb.x = (int) (akPosition.rgbRelative.x * _rgbTargetWidth);
+    akPosition.rgb.y = (int) (akPosition.rgbRelative.y * _rgbTargetHeight);
+    akPosition.depth.x = (int) (akPosition.depthRelative.x * _depthTargetWidth);
+    akPosition.depth.y = (int) (akPosition.depthRelative.y * _depthTargetHeight);
 }
 
 #endif
